@@ -37,5 +37,5 @@ credentials.js
 Thumbs.db
 *.bak
 
-.env*
+*.env*
 credentials.js
