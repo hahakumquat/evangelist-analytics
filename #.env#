@@ -1,0 +1,4 @@
+Key=4mralkrSem6uQPpcSkwCHNjkx
+Secret=sS32s54jXVCvBe7veI5pnh5G5QmAxAz7vgeMyabHjxhtSHW1gl
+MongoLabURI=mongodb://admin:asdf@ds045465.mlab.com:45465/adsk-evangelist-analytics
+URI= mongodb://admin2:asdf@ds045465.mlab.com:45465/adsk-evangelist-analytics

@@ -155,60 +155,55 @@ function getCredentials(key, secret) {
 /***************************************************************************/
 
 function updateMongoDB() {
-    db = mongoose.createConnection(process.env.MongoLabURI);
-    var db = mongoose.connection;
+    var db = mongoose.connect(process.env.MongoLabURI);
     var Schema = mongoose.Schema;
     
-    db.on('error', console.error.bind(console, 'connection error:'));
-    db.once('open', function() {
-        console.log("We're connected!");
+    var userSchema = new Schema({
+        // "id": Number,
+        // "statuses_count": Number,
+        // "followers_count": Number,
+        // "friends_count": Number,
+        // "listed_count": Number,
+        // "screen_name": String,
+        // "statuses": [{
+        //     "id": Number,
+        //     "retweet_count": Number,
+        //     "favorite_count": Number,
+        //     "text": String
+        // }],
+        // "retweets": [{
+        //     "id": Number,
+        //     "retweet_count": Number,
+        //     "favorite_count": Number,
+        //     "text": String
+        // }],  
+        name: String,
+        password: String
+    });
+    var User = mongoose.model("User", userSchema);
+    var test = new User({ name: "test", password: "test2" });
+    console.log("made test");
+    
+    // var uri = process.env.MongoLabURI;
+    // db = mongoose.connect(uri);
+    // Schema = mongoose.Schema;
 
-        var userSchema = new Schema({
-            // "id": Number,
-            // "statuses_count": Number,
-            // "followers_count": Number,
-            // "friends_count": Number,
-            // "listed_count": Number,
-            // "screen_name": String,
-            // "statuses": [{
-            //     "id": Number,
-            //     "retweet_count": Number,
-            //     "favorite_count": Number,
-            //     "text": String
-            // }],
-            // "retweets": [{
-            //     "id": Number,
-            //     "retweet_count": Number,
-            //     "favorite_count": Number,
-            //     "text": String
-            // }],  
-            name: String,
-            password: String
-        });
-        var User = mongoose.model("User", userSchema);
-        var test = new User({ name: "nam", password: "pass" });
-        console.log("made test");
-        test.save(function(err, test) {
-            console.log("savedd?");
-            if (err) {
-                console.log("not saved, err");
-                return console.error(err);
-            }
-            console.log("saved");
-        });
-
-        console.log("done");
-    }); 
-        // Object.keys(data).forEach(function(p) {
-        //     var obj = data[p];
-        //     var person = new User(obj);
-            // connection.collection.insert(person);
-            // person.save(function(err) {
-            //     if (err) {
-            //         return handleError(err);
-            //     } else {
-            //         console.log("Success!");
-            //     }
-            // });
+    // var userSchema = new Schema({
+    //     name  :  { type: String, default: '' }
+    //     , password   :  { type: String, default: '' }
     // });
+    // var userModel = mongoose.model('User', userSchema);
+    // var test = new userModel({name: "test", password: "test"})
+
+    // console.log("me: " + test)
+
+    test.save(function (err, test) {
+        console.log("saved?")
+        if (err) {
+            console.log("error");
+            return console.error(err);
+        }
+        console.log("saved!")
+    });
+    console.log("after save");
 }
