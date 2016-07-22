@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html>
+    <h3ead>
+    </head>
+    <body>
+        <p id="output">
+        </p>
+        <script src="main.js" ></script>
+    </body>
+</html>

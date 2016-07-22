@@ -1,0 +1,27 @@
+{
+  "name": "twitter-oauth",
+  "version": "1.0.0",
+  "description": "",
+  "main": "public/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hahakumquat/twitter_oAuth.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/hahakumquat/twitter_oAuth/issues"
+  },
+  "homepage": "https://github.com/hahakumquat/twitter_oAuth#readme",
+  "dependencies": {
+    "express": "^4.14.0",
+    "https": "^1.0.0",
+    "mongodb": "^2.2.4",
+    "mongoose": "^4.5.5",
+    "node-env-file": "^0.1.8"
+  }
+}
