@@ -1,7 +1,12 @@
 /**************************************************************************
- * Updates MongoDB with incoming data.
- * To be called on a regular basis with a cron job
- *************************************************************************/
+* Updates MongoDB with incoming data.
+* To be called on a regular basis with a cron job
+*************************************************************************/
+/*
+  Issues:
+  Duplicating tweets despite checking for date?
+  Can't find tweets from more than 200 tweets before yet...
+*/
 
 var https = require("https");
 var mongoose = require('mongoose');
@@ -12,28 +17,46 @@ var key = process.env.Key;
 var secret = process.env.Secret;
 
 var user_ids = [
-    "748625448771457025",
-    "633344107",
-    "44491207"
+    "633344107", // Shiya
+    "44491207", // Jaime 
+    "2520004602", // Cyrille
+    "1058645280", // Stephen
+    "3131076946", // Philippe
 ];
 
+/* Hierarchy:
+object {
+    statuses_count
+    followers_count
+    ...
+    statuses: [
+        id:
+        retweet_count
+        ...
+    ]
+} 
+*/
+// Specify the properties to collect from a user here
 var userData = [
     "statuses_count",
     "followers_count",
     "friends_count",
     "listed_count",
-    "id", "screen_name"
+    "id",
+    "screen_name"
 ];
 
+// Specify the properties to collect from a status here
 var statusData = [
     "id",
     "retweet_count",
     "favorite_count",
     "text"
+    // created_at is calculated separately
 ];
 
-var data = {}; // Data buffer
-var completed = user_ids.length; // semaphore for data pull complete
+var data = {}; // Data buffer of users' current states
+var completed = user_ids.length; // semaphore for data pull completion
 
 main();
 
@@ -41,7 +64,8 @@ main();
 /****************************HTTPS REQUESTS*********************************/
 /***************************************************************************/
 
-// Starts data update by getting token and then updating data
+/* Starts data update by getting token and then updating data
+Note: Twitter only allows 300 requests per 15 minutes.*/
 function main() {
     getBearerToken(getPerUserData);
 }
@@ -58,14 +82,17 @@ function getBearerToken(callback) {
     }, undefined, callback);
 }
 
-// Iterates through all people, calling each person's data query
+/* Iterates through all people, calling each person's timeline query.
+   Note: Twitter only allows 300 requests per 15 minutes with a
+   max of 200 tweets per query. TODO: loop back in time by max_id
+   to find groups of 200 */
 function getPerUserData(token) {
     user_ids.forEach(function(id, i) {
         getUserTimeline(token, id);
     });
 };
 
-// Timeline data returns obj containing user and statuses (up to max 200) data
+// Timeline data returns obj containing user and statuses
 function getUserTimeline(token, id) {
     requestTwitter({
         headers: {
@@ -73,41 +100,50 @@ function getUserTimeline(token, id) {
         },
         method: "GET",
         path: "/1.1/statuses/user_timeline.json?user_id=" + id + "&count=200"
-    }, token, updateTimelineData);
+    }, token, updateTimelineData)
 };
 
-// First fills user fields in data, then updates with all statuses
+// stores in data object. 
 function updateTimelineData(_, obj) {
     updateUsers(obj[0].user);
     updateStatuses(obj);
-    if (--completed == 0) {
+
+    // If all users' data retrieved, pushes to mongodb
+    if (--completed == 0)
         updateMongoDB();
-    }
 };
 
+// Pulls the relevant userData specified at top of file
 function updateUsers(user) {
     var i = user.id_str;
     data[i] = data[i] || {};
     userData.forEach(function(d) {
         data[i][d] = user[d];
-    });
+    });    
 }
 
+// stores relevant status data
 function updateStatuses(statuses) {
-    var userid = statuses[0].user.id_str;
+    var userid = statuses[1].user.id_str;
     data[userid].statuses = data[userid].statuses || [];
     data[userid].retweets = data[userid].retweets || [];
+
     Object.keys(statuses).forEach(function(i) {
         var tmp = {};
         var status = statuses[i];
         statusData.forEach(function(s) {
             tmp[s] = status[s];
         });
+        
+        // created_at will store a date obj instead of string
+        tmp.created_at = new Date(status.created_at);
+
         // checks if retweet or status
-        if (status["retweeted_status"])
-            data[userid].retweets.push(tmp);
-        else
+        if (!status["retweeted_status"])
             data[userid].statuses.push(tmp);
+        /*//*/ else
+        /*//*/     data[userid].retweets.push(tmp);
+            
     });
 }
 
@@ -155,55 +191,65 @@ function getCredentials(key, secret) {
 /***************************************************************************/
 
 function updateMongoDB() {
-    var db = mongoose.connect(process.env.MongoLabURI);
-    var Schema = mongoose.Schema;
     
-    var userSchema = new Schema({
-        // "id": Number,
-        // "statuses_count": Number,
-        // "followers_count": Number,
-        // "friends_count": Number,
-        // "listed_count": Number,
-        // "screen_name": String,
-        // "statuses": [{
-        //     "id": Number,
-        //     "retweet_count": Number,
-        //     "favorite_count": Number,
-        //     "text": String
-        // }],
-        // "retweets": [{
-        //     "id": Number,
-        //     "retweet_count": Number,
-        //     "favorite_count": Number,
-        //     "text": String
-        // }],  
-        name: String,
-        password: String
-    });
-    var User = mongoose.model("User", userSchema);
-    var test = new User({ name: "test", password: "test2" });
-    console.log("made test");
-    
-    // var uri = process.env.MongoLabURI;
-    // db = mongoose.connect(uri);
-    // Schema = mongoose.Schema;
-
-    // var userSchema = new Schema({
-    //     name  :  { type: String, default: '' }
-    //     , password   :  { type: String, default: '' }
-    // });
-    // var userModel = mongoose.model('User', userSchema);
-    // var test = new userModel({name: "test", password: "test"})
-
-    // console.log("me: " + test)
-
-    test.save(function (err, test) {
-        console.log("saved?")
-        if (err) {
-            console.log("error");
-            return console.error(err);
+    mongoose.connect(
+        process.env.MongoLabURI,
+        function (err) {
+            if (err)
+                console.log ('DB connection error: ' + err) ;
         }
-        console.log("saved!")
+    );
+    var Schema = mongoose.Schema;
+    var userSchema = require('mongooseSchema');
+    var User = mongoose.model('User', userSchema);
+    var processed = 0;
+    
+    // Iterates through people in data, updating info or making new people
+    Object.keys(data).forEach(function(k) {
+        
+        var person = data[k];
+
+        User.findOne({ 'id': person.id }, function(err, foundPerson) {
+
+            // If user doesn't exist
+            var user;
+            if (foundPerson === null) {
+                user = new User(person);
+                user.total_retweets = 0;
+                user.total_favorites = 0;
+            }
+            
+            else {
+                foundPerson.statuses_count = person.statuses_count;
+                foundPerson.followers_count = person.followers_count;
+                foundPerson.friends_count = person.friends_count;
+                foundPerson.listed_count = person.listed_count;
+                // add all the new statuses to the foundPerson
+                person.statuses.forEach(function(status) {
+                    // TODO: decide if status should be included
+                    foundPerson.statuses.push(status);
+                });
+
+                // set the user to the foundPerson
+                user = foundPerson;
+            }
+            // add up all the retweets and favorites
+            var total_retweets = 0;
+            var total_favorites = 0;
+            user.statuses.forEach(function(status) {
+                total_retweets += status.retweet_count;
+                total_favorites += status.favorite_count;
+            });
+            user.total_retweets = total_retweets;
+            user.total_favorites = total_favorites;
+            
+            user.save(function(err, record) {
+                if (err)
+                    return console.error(err);
+                if (++processed === Object.keys(data).length) {
+                    mongoose.connection.close();
+                }
+            });
+        });
     });
-    console.log("after save");
 }

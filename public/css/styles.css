@@ -1,0 +1,15 @@
+body {
+    margin-left: 0vw;
+    margin-right: 0vw;
+    text-align: center;
+}
+
+.legend rect {
+    stroke: white;
+    stroke-width: 2px;
+    stroke-opacity: 0.3;
+}
+
+#stackedBarChart, #stackedAreaChart {
+    display: inline;
+}

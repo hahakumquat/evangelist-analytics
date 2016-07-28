@@ -1,0 +1,144 @@
+// Creates initial bac chart object
+StackedBarChart = function(data, parentElement) {
+
+    /* Constructor */
+    var vis = this;
+    var margin = {
+        left: 40,
+        right: 20,
+        top: 20,
+        bottom: 70
+    };
+    var WIDTH = 500;
+    var HEIGHT = 350;
+    
+    vis.margin = margin;
+    vis.parentElement = parentElement;
+    vis.data = data;
+    vis.width = WIDTH - margin.left - margin.right;
+    vis.height = HEIGHT - margin.top - margin.bottom;
+    vis.svg = d3.select(parentElement).append("svg")
+        .attr("width", WIDTH)
+        .attr("height", HEIGHT)
+        .append("g")
+        .attr("id", "controller")
+        .attr("transform",
+              "translate(" + margin.left + "," + margin.top + ")");
+}
+
+// Creates static elements
+StackedBarChart.prototype.initVis = function() {
+    var vis = this;
+    
+    vis.xScale = d3.scaleBand()
+        .rangeRound([0, vis.width])
+        .padding(0.1)
+
+    vis.yScale = d3.scaleLinear()
+        .rangeRound([vis.height, 0]);
+
+    vis.colorScale = d3.scaleOrdinal()
+        .range(['#ffffe5', '#fff7bc', '#fee391', '#fec44f', '#fe9929', '#ec7014', '#cc4c02', '#993404', '#662506'].reverse());
+
+    vis.xAxis = d3.axisBottom(vis.xScale);
+    vis.yAxis = d3.axisLeft(vis.yScale);
+
+    vis.svg.append("g")
+        .attr("class", "axis x-axis")
+        .attr("transform", "translate(" + 0 + ", " + (vis.height) + ")");
+    vis.svg.append("g")
+        .attr("class", "axis y-axis")        
+}
+
+// organizes vis.data into stackable data
+StackedBarChart.prototype.wrangleData = function() {
+    var vis = this;
+    var raw = vis.data.filter(function(d) {
+        if ($("#" + d.id).prop("checked"))
+            return true;
+    });
+    var keys = Object.keys(raw);
+    var names = vis.names = keys.map(function(p) { return raw[p].screen_name });
+    // x axis categories
+    var categories = ["Followers", "Tweets by User", "Favorites of User", "Retweets of User"];
+    
+    var toStack = [];
+    for (var k = 0; k < categories.length; k++) {
+        toStack.push({
+            category: categories[k]
+        });
+    }
+
+    for (var k = 0; k < names.length; k++) {
+        var person = raw[k];
+        toStack[0][person.screen_name] = person.followers_count[0];
+        toStack[1][person.screen_name] = person.statuses.length;
+        toStack[2][person.screen_name] = person.total_favorites;
+        toStack[3][person.screen_name] = person.total_retweets;
+    }
+    var stack = d3.stack()
+        .keys(names)
+        .order(d3.stackOrderNone)
+        .offset(d3.stackOffsetNone);
+
+    vis.parsedData = stack(toStack);
+    var topPerson = vis.parsedData[vis.parsedData.length - 1];
+    var maxY = 0;
+    for (var k = 0; k < topPerson.length; k++) {
+        if (maxY < topPerson[k][1])
+            maxY = topPerson[k][1];
+    }
+    vis.xScale.domain(categories);
+    vis.yScale.domain([0, maxY]).nice();
+    vis.colorScale.domain(names);
+}
+
+StackedBarChart.prototype.updateVis = function() {
+    vis = this;
+
+    vis.svg.selectAll(".serie, .legend").remove();
+    
+    vis.wrangleData();
+    
+    var serie = vis.svg.selectAll(".serie")
+        .data(vis.parsedData)
+
+    serie
+        .enter().append("g")
+        .attr("class", "serie")
+        .attr("fill", function(d) { return vis.colorScale(d.key); })
+
+        .selectAll("rect")
+        .data(function(d) { return d; })
+        .enter().append("rect")
+        .attr("x", function(d) { return vis.xScale(d.data.category)})
+        .attr("y", function(d) { return vis.yScale(d[1]); })
+        .attr("height", function(d) { return vis.yScale(d[0]) - vis.yScale(d[1]) })
+        .attr("width", vis.xScale.bandwidth())
+        .on("mouseover", function(d) {
+            console.log(d[1] - d[0]);
+        });
+
+    var legend = vis.svg.selectAll(".legend")
+        .data(vis.parsedData)
+        .enter().append("g")
+        .attr("class", "legend")
+        .attr("transform", function(d, i) { return "translate(0," + (vis.names.length * 20 - i * 20) + ")"; })
+        .style("font", "10px sans-serif");
+
+    legend.append("rect")
+        .attr("x", vis.width - 18)
+        .attr("width", 18)
+        .attr("height", 18)
+        .attr("fill", function(d) { return vis.colorScale(d.key) });
+    
+    legend.append("text")
+        .attr("x", vis.width - 24)
+        .attr("y", 9)
+        .attr("dy", ".35em")
+        .attr("text-anchor", "end")
+        .text(function(d) { return d.key; });
+
+    vis.svg.select(".x-axis").transition().call(vis.xAxis);
+    vis.svg.select(".y-axis").transition().call(vis.yAxis);
+}
