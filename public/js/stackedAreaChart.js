@@ -182,9 +182,7 @@ function stackFormat(data, names) {
             date: keys[k]
         };
         for (var j = 0; j < names.length; j++) {
-            obj[names[j]] = aggregate(dateObj[names[j]].tweets,
-                                      dateObj[names[j]].favorites,
-                                      dateObj[names[j]].retweets);
+            obj[names[j]] = aggregate(dateObj[names[j]]);
         }
         arr.push(obj);
     }
@@ -192,7 +190,10 @@ function stackFormat(data, names) {
 }
 
 // function that defines how to calculate a value in the stacked area chart
-function aggregate(tweets, favorites, retweets) {
+function aggregate(obj) {
+    var tweets = obj.tweets;
+    var favorites = obj.favorites;
+    var retweets = obj.retweets;
     // return favorites + retweets / Math.max(tweets, 1);
     return favorites / 100 +  Math.max(1, retweets) / (Math.max(1, tweets));
 }
