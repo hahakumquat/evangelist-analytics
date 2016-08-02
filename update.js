@@ -57,8 +57,8 @@ var statusData = [
 ];
 
 var data = {}; // Data buffer of users' current states
-var completed = user_ids.length; // semaphore for data pull completion
-
+var get200 = user_ids.length; // semaphore for 1st 200 data pull completion
+var get3000 = {};
 main();
 
 /***************************************************************************/
@@ -73,6 +73,7 @@ function main() {
 
 // Gets twitter request for bearer token, used for authenticating ALL reqs
 function getBearerToken(callback) {
+    console.log("Retrieving bearer token.");
     requestTwitter({
         headers: {
             Authorization: "Basic " + getCredentials(key, secret),
@@ -80,7 +81,10 @@ function getBearerToken(callback) {
         },
         method: "POST",
         path: "/oauth2/token"
-    }, undefined, callback);
+    }, undefined, function(token) {
+        console.log("Token retrieved!");
+        callback(token);
+    });
 }
 
 /* Iterates through all people, calling each person's timeline query.
@@ -89,34 +93,75 @@ function getBearerToken(callback) {
    to find groups of 200 */
 function getPerUserData(token) {
     user_ids.forEach(function(id, i) {
+        console.log("Requesting initial data from " + id + ".");
         getUserTimeline(token, id);
     });
 };
 
 // Timeline data returns obj containing user and statuses
-function getUserTimeline(token, id) {
+// optional max_id provided which specifies the latest tweet to pull
+function getUserTimeline(token, id, max_id) {
+    var path = "/1.1/statuses/user_timeline.json?user_id=" + id + "&count=200";
+    if (max_id)
+        path += "&max_id=" + max_id;
     requestTwitter({
         headers: {
             Authorization: "Bearer " + token,
         },
         method: "GET",
-        path: "/1.1/statuses/user_timeline.json?user_id=" + id + "&count=200"
-    }, token, updateTimelineData)
+        path: path
+    }, token, function(token, obj) {
+        console.log("Received data for " + obj[0].user.screen_name + ".");
+        updateTimelineData(token, obj);
+    })
 };
 
 // stores in data object. 
-function updateTimelineData(_, obj) {
-    updateUsers(obj[0].user);
+function updateTimelineData(token, obj) {
+    // note that this call to updateUsers is repeated unnecessarily
+    updateUsers(obj);
     updateStatuses(obj);
 
-    // If all users' data retrieved for first 200
-    if (--completed == 0) {
-        updateMongoDB();
+    // If all users' data retrieved for first 200, start off finding next 3000
+    if (--get200 == 0) {
+        console.log("Received all initial data! Commencing remaining 3000 tweets per user.");
+        Object.keys(data).forEach(function(id) {
+            var person = data[id];
+            var numTweets = person.statuses_count;
+            var numRequests = Math.min(16, Math.ceil(Math.max(0, numTweets - 200) / 200));
+            get3000[person.id] = numRequests;
+            if (numRequests > 0) {
+                getUserTimeline(token, person.id, person.statuses[person.statuses.length-1].id);
+            }
+        });
+    }
+    // get200 < 0, now checking for remaining 3000
+    else if (get200 < 0) {
+        get3000[obj[0].user.id] -= 1;
+        // if user still has remaining tweet requests
+        if (get3000[obj[0].user.id] > 0) {
+            var statuses = data[obj[0].user.id].statuses;
+            getUserTimeline(token, obj[0].user.id, statuses[statuses.length - 1].id);
+        }
+        else {
+            // check if all other tweet requests are done
+            var flag = true;
+            Object.keys(get3000).forEach(function(k) {
+                if (get3000[k] > 0) {
+                    flag = false;
+                }
+            });
+            // update mongodb if getting the 3000 tweets of others is all done
+            if (flag) {
+                updateMongoDB();
+            }
+        }
     }
 };
 
 // Pulls the relevant userData specified at top of file
-function updateUsers(user) {
+function updateUsers(obj) {
+    var user = obj[0].user;
     var i = user.id_str;
     data[i] = data[i] || {};
     userData.forEach(function(d) {
