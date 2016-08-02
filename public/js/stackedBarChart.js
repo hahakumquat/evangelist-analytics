@@ -24,6 +24,8 @@ StackedBarChart = function(data, parentElement) {
         .attr("id", "controller")
         .attr("transform",
               "translate(" + margin.left + "," + margin.top + ")");
+
+    vis.allNames = ["F3lipek", "ShiyaLuo", "_stephenpreston", "AfroJme", "FAUVELCyrille"];
 }
 
 // Creates static elements
@@ -38,7 +40,7 @@ StackedBarChart.prototype.initVis = function() {
         .rangeRound([vis.height, 0]);
 
     vis.colorScale = d3.scaleOrdinal()
-        .range(['#ffffe5', '#fff7bc', '#fee391', '#fec44f', '#fe9929', '#ec7014', '#cc4c02', '#993404', '#662506'].reverse());
+        .range(d3.schemeCategory20);
 
     vis.xAxis = d3.axisBottom(vis.xScale);
     vis.yAxis = d3.axisLeft(vis.yScale);
@@ -90,7 +92,7 @@ StackedBarChart.prototype.wrangleData = function() {
     }
     vis.xScale.domain(categories);
     vis.yScale.domain([0, maxY]).nice();
-    vis.colorScale.domain(names);
+    vis.colorScale.domain(vis.allNames);
 }
 
 StackedBarChart.prototype.updateVis = function() {
@@ -116,7 +118,7 @@ StackedBarChart.prototype.updateVis = function() {
         .attr("height", function(d) { return vis.yScale(d[0]) - vis.yScale(d[1]) })
         .attr("width", vis.xScale.bandwidth())
         .on("mouseover", function(d) {
-            console.log(d[1] - d[0]);
+            // console.log(d[1] - d[0]);
         });
 
     var legend = vis.svg.selectAll(".legend")

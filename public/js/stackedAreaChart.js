@@ -1,6 +1,7 @@
+var ctr = 0;
 // Creates initial bac chart object
 StackedAreaChart = function(data, parentElement) {
-
+    
     /* Constructor */
     var vis = this;
     var margin = {
@@ -24,13 +25,15 @@ StackedAreaChart = function(data, parentElement) {
         .attr("id", "controller")
         .attr("transform",
               "translate(" + margin.left + "," + margin.top + ")");
-    
+
     vis.area = d3.area()
         .x(function(d) {
             return vis.xScale(new Date(d.data.date));
         })
         .y0(function(d) { return vis.yScale(d[0]); })
         .y1(function(d) { return vis.yScale(d[1]); });
+
+    vis.allNames = ["F3lipek", "ShiyaLuo", "_stephenpreston", "AfroJme", "FAUVELCyrille"];
 }
 
 // Creates static elements
@@ -44,8 +47,7 @@ StackedAreaChart.prototype.initVis = function() {
         .rangeRound([vis.height, 0]);
 
     vis.colorScale = d3.scaleOrdinal()
-        .range(['#ffffe5', '#fff7bc', '#fee391', '#fec44f', '#fe9929', 
-'#ec7014', '#cc4c02', '#993404', '#662506'].reverse());
+        .range(d3.schemeCategory20);
 
     vis.xAxis = d3.axisBottom(vis.xScale);
     vis.yAxis = d3.axisLeft(vis.yScale);
@@ -89,16 +91,17 @@ StackedAreaChart.prototype.wrangleData = function() {
                 stackObj[moYr] = {};
                 names.forEach(function(screen_name) {
                     stackObj[moYr][screen_name] = {
-                        favorites: 0,
+                        favorite_count: 0,
                         tweets: 0,
-                        retweets: 0
+                        retweet_count: 0,
+                        followers_count: person.followers_count[0]
                     }
                 });
                 dateSet.add(moYr);
             }
-            stackObj[moYr][person.screen_name].favorites += status.favorite_count;
+            stackObj[moYr][person.screen_name].favorite_count += status.favorite_count;
             stackObj[moYr][person.screen_name].tweets += 1;
-            stackObj[moYr][person.screen_name].retweets += status.retweet_count;
+            stackObj[moYr][person.screen_name].retweet_count += status.retweet_count;
         }
     }
 
@@ -110,6 +113,15 @@ StackedAreaChart.prototype.wrangleData = function() {
 
     vis.parsedData = stack(toStack);
 
+    vis.parsedData.forEach(function(p) {
+        p.sort(function(a, b) {
+            var d1 = new Date(a.data.date);
+            var d2 = new Date(b.data.date);
+            if (d1 < d2) return 1;
+            else return -1;
+        });
+    });
+
     var topPerson = vis.parsedData[vis.parsedData.length - 1];
     var maxY = 0;
     for (var k = 0; k < topPerson.length; k++) {
@@ -118,13 +130,13 @@ StackedAreaChart.prototype.wrangleData = function() {
     }
     vis.xScale.domain(d3.extent(toStack, function(d) { return new Date(d.date); }));
     vis.yScale.domain([0, maxY]).nice();
-    vis.colorScale.domain(names);
+    vis.colorScale.domain(vis.allNames);
 }
 
 StackedAreaChart.prototype.updateVis = function() {
     vis = this;
 
-    vis.svg.selectAll(".layer, .legend").remove();
+    vis.svg.selectAll(".layer, .area, .legend").remove();
     
     vis.wrangleData();
 
@@ -132,13 +144,13 @@ StackedAreaChart.prototype.updateVis = function() {
         .data(vis.parsedData)
         .enter().append("g")
         .attr("class", "layer")
-
+    layer
         .append("path")
         .attr("class", "area")
         .attr("d", vis.area)
         .attr("fill", function(d) { return vis.colorScale(d.key); })
         .on("mouseover", function(d) {
-            console.log(d);
+            // console.log(d);
         });
 
     var legend = vis.svg.selectAll(".legend")
@@ -192,8 +204,9 @@ function stackFormat(data, names) {
 // function that defines how to calculate a value in the stacked area chart
 function aggregate(obj) {
     var tweets = obj.tweets;
-    var favorites = obj.favorites;
-    var retweets = obj.retweets;
-    // return favorites + retweets / Math.max(tweets, 1);
-    return favorites / 100 +  Math.max(1, retweets) / (Math.max(1, tweets));
+    var favorite_count = obj.favorite_count;
+    var retweet_count = obj.retweet_count;
+    var followers_count = obj.followers_count;
+    return (favorite_count + retweet_count / followers_count) / Math.max(1, tweets);
+    // return tweets;
 }

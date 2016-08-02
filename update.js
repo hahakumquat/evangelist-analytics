@@ -18,7 +18,7 @@ var secret = process.env.Secret;
 
 var user_ids = [
     "633344107", // Shiya
-    "44491207", // Jaime 
+    "44491207",  // Jaime 
     "2520004602", // Cyrille
     "1058645280", // Stephen
     "3131076946", // Philippe
@@ -36,6 +36,7 @@ object {
     ]
 } 
 */
+
 // Specify the properties to collect from a user here
 var userData = [
     "statuses_count",
@@ -51,7 +52,7 @@ var statusData = [
     "id",
     "retweet_count",
     "favorite_count",
-    "text"
+    // "text"
     // created_at is calculated separately
 ];
 
@@ -108,9 +109,10 @@ function updateTimelineData(_, obj) {
     updateUsers(obj[0].user);
     updateStatuses(obj);
 
-    // If all users' data retrieved, pushes to mongodb
-    if (--completed == 0)
+    // If all users' data retrieved for first 200
+    if (--completed == 0) {
         updateMongoDB();
+    }
 };
 
 // Pulls the relevant userData specified at top of file
@@ -124,9 +126,9 @@ function updateUsers(user) {
 
 // stores relevant status data
 function updateStatuses(statuses) {
-    var userid = statuses[1].user.id_str;
+    var userid = statuses[0].user.id_str;
     data[userid].statuses = data[userid].statuses || [];
-    data[userid].retweets = data[userid].retweets || [];
+    // data[userid].retweets = data[userid].retweets || [];
 
     Object.keys(statuses).forEach(function(i) {
         var tmp = {};
@@ -141,8 +143,8 @@ function updateStatuses(statuses) {
         // checks if retweet or status
         if (!status["retweeted_status"])
             data[userid].statuses.push(tmp);
-        /*//*/ else
-        /*//*/     data[userid].retweets.push(tmp);
+        // else
+        //     data[userid].retweets.push(tmp);
             
     });
 }
@@ -200,39 +202,38 @@ function updateMongoDB() {
         }
     );
     var Schema = mongoose.Schema;
+    // Defines structure for document in mongodb.
+    // Don't forget to change in node/modules if you want more or fewer metrics
     var userSchema = require('mongooseSchema');
     var User = mongoose.model('User', userSchema);
     var processed = 0;
     
     // Iterates through people in data, updating info or making new people
     Object.keys(data).forEach(function(k) {
-        
         var person = data[k];
 
         User.findOne({ 'id': person.id }, function(err, foundPerson) {
-
             // If user doesn't exist
             var user;
             if (foundPerson === null) {
                 user = new User(person);
-                user.total_retweets = 0;
-                user.total_favorites = 0;
+                user.statuses = person.statuses;
             }
-            
             else {
-                foundPerson.statuses_count = person.statuses_count;
                 foundPerson.followers_count = person.followers_count;
                 foundPerson.friends_count = person.friends_count;
                 foundPerson.listed_count = person.listed_count;
-                // add all the new statuses to the foundPerson
-                person.statuses.forEach(function(status) {
-                    // TODO: decide if status should be included
-                    foundPerson.statuses.push(status);
-                });
-
-                // set the user to the foundPerson
+                user = foundPerson;
+                var latest_date = foundPerson.statuses[0].created_at;
+                var ctr = 0;
+                while (ctr < person.statuses.length && person.statuses[ctr].created_at > latest_date) {
+                    ctr++;
+                }
+                person.statuses.splice(ctr);
+                foundPerson.statuses = person.statuses.concat(foundPerson.statuses);
                 user = foundPerson;
             }
+
             // add up all the retweets and favorites
             var total_retweets = 0;
             var total_favorites = 0;
@@ -242,7 +243,7 @@ function updateMongoDB() {
             });
             user.total_retweets = total_retweets;
             user.total_favorites = total_favorites;
-            
+
             user.save(function(err, record) {
                 if (err)
                     return console.error(err);
