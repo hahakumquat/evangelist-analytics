@@ -22,6 +22,11 @@ var user_ids = [
     "2520004602", // Cyrille
     "1058645280", // Stephen
     "3131076946", // Philippe
+    "24024574", // Augusto
+    "23085371", // Adam
+    "4350680893", // Mikako
+    "28485073", // Xiaodong
+    "340596214", // Jim
 ];
 
 /* Hierarchy:

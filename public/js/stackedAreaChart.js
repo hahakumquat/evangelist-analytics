@@ -161,16 +161,16 @@ StackedAreaChart.prototype.updateVis = function() {
         .style("font", "10px sans-serif");
 
     legend.append("rect")
-        .attr("x", vis.width - 18)
+        .attr("x", 18)
         .attr("width", 18)
         .attr("height", 18)
         .attr("fill", function(d) { return vis.colorScale(d.key) })
     
     legend.append("text")
-        .attr("x", vis.width - 24)
+        .attr("x", 40)
         .attr("y", 9)
         .attr("dy", ".35em")
-        .attr("text-anchor", "end")
+        // .attr("text-anchor", "start")
         .text(function(d) { return d.key; });
 
     vis.svg.select(".x-axis").transition()
